@@ -1,0 +1,47 @@
+FROM node:14-alpine as dependencies
+
+ENV WORKDIR=/usr/local/build
+RUN apk add --no-cache libc6-compat
+WORKDIR $WORKDIR
+COPY yarn.lock package.json ./
+RUN yarn install --frozen-lockfile
+
+FROM node:14-alpine as build
+
+ENV WORKDIR=/usr/local/build
+ARG DEPS_PARH=/usr/local/build
+WORKDIR $WORKDIR
+COPY --from=dependencies "${DEPS_PARH}/node_modules" ./node_modules
+COPY . .
+
+RUN yarn build \
+	&& yarn install --production --ignore-scripts
+
+FROM node:14-alpine as app
+
+ARG BUILDER_PATH=/usr/local/build
+
+ENV NODE_ENV=production
+ENV TZ=Asia/Bangkok
+ENV WORKDIR=/usr/local/app
+
+RUN apk add --no-cache su-exec
+
+WORKDIR $WORKDIR
+
+COPY --from=build "${BUILDER_PATH}/.next" ./.next
+COPY --from=build "${BUILDER_PATH}/node_modules" ./node_modules
+COPY --from=build "${BUILDER_PATH}/public" ./public
+COPY --from=build "${BUILDER_PATH}/docker-entrypoint.sh" /usr/local/bin/docker-entrypoint.sh
+COPY --from=build "${BUILDER_PATH}/next.config.js" ./next.config.js
+COPY --from=build "${BUILDER_PATH}/package.json" ./package.json
+
+RUN chown -R node:node $WORKDIR \
+	&& chmod -R go-rwx $WORKDIR \
+	&& chmod 0755 /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 3000/tcp
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+CMD ["yarn", "start"]

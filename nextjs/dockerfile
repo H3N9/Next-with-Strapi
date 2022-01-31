@@ -34,6 +34,7 @@ COPY --from=build "${BUILDER_PATH}/node_modules" ./node_modules
 COPY --from=build "${BUILDER_PATH}/public" ./public
 COPY --from=build "${BUILDER_PATH}/docker-entrypoint.sh" /usr/local/bin/docker-entrypoint.sh
 COPY --from=build "${BUILDER_PATH}/next.config.js" ./next.config.js
+COPY --from=build "${BUILDER_PATH}/.env" ./.env
 COPY --from=build "${BUILDER_PATH}/package.json" ./package.json
 
 RUN chown -R node:node $WORKDIR \
